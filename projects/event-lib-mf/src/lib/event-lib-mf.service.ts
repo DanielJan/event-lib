@@ -1,39 +1,50 @@
 import { Injectable } from '@angular/core';
-import { Subject, Observable, filter, map } from 'rxjs';
+import { Subject, Observable } from 'rxjs';
+import { filter, map } from 'rxjs/operators';
 
 export enum EventType {
   UPDATEUSER = 'updateUser',
   ADDTOCART = 'addToCart',
+  REMOVECART = 'removeCart'
 }
+
 interface UpdateUserEvent {
-  event: EventType.ADDTOCART;
-  data: { productId: string; userName: string };
+  event: EventType.UPDATEUSER;
+  data: { userId: string; userName: string };
 }
 
 interface AddToCartEvent {
-  event: EventType.UPDATEUSER;
-  data: { userId: string; quantity: number };
+  event: EventType.ADDTOCART;
+  data: { productId: string; quantity: number, userId: number };
 }
 
-export type EventServiceType = UpdateUserEvent | AddToCartEvent;
+interface RemoveCart {
+  event: EventType.REMOVECART;
+  data: { productId: string; quantity: number, name: string };
+}
+
+type EventMap = {
+  [EventType.UPDATEUSER]: UpdateUserEvent;
+  [EventType.ADDTOCART]: AddToCartEvent;
+  [EventType.REMOVECART]: RemoveCart;
+};
+
+export type EventServiceType = UpdateUserEvent | AddToCartEvent | RemoveCart;
 
 @Injectable({
   providedIn: 'root',
 })
-export class EventService<EventServiceType> {
-  private subject: Subject<{ event: EventType; data: any }> = new Subject<{
-    event: EventType;
-    data: any;
-  }>();
+export class EventService {
+  private subject = new Subject<EventServiceType>();
 
-  on(event: EventType): Observable<EventServiceType> {
+  on<K extends keyof EventMap>(event: EventType): Observable<EventMap[K]['data']> {
     return this.subject.asObservable().pipe(
-      filter((eventData) => eventData.event === event),
-      map((eventData) => eventData.data as EventServiceType)
+      filter((e): e is EventMap[K] => e.event === event),
+      map((e) => e.data)
     );
   }
 
-  emit(event: EventType, data: EventServiceType) {
-    this.subject.next({ event, data });
+  emit<K extends keyof EventMap>(event: EventType, data: EventMap[K]['data']): void {
+    this.subject.next({ event, data } as EventServiceType);
   }
 }
